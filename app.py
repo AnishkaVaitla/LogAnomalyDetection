@@ -121,7 +121,7 @@ if uploaded_file is not None:
 
         st.button("⏹️ Stop Processing", on_click=stop)
 
-        st.markdown("### 🚨 Anomalous Logs Detected")
+        st.markdown("### 🚨 Detecting Anomalous Logs...")
         for log_block in log_blocks:
             if st.session_state.stop_processing:
                 st.warning("⚠️ Processing stopped by user.")
