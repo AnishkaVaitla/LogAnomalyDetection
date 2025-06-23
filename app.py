@@ -100,9 +100,32 @@ if uploaded_file is not None:
         # For simplicity, skip metadata parsing in UI
         parsed_metadata = {}
 
-        anomaly_count = 0
+        if "anomaly_count" not in st.session_state:
+            st.session_state.anomaly_count = 0
+        if "line_count" not in st.session_state:
+            st.session_state.line_count = 0
+        if "anomalies" not in st.session_state:
+            st.session_state.anomalies = []
+
+        # Explain the stop button to the user
+        st.markdown("**Click the ⏹️ Stop Processing button below if you want to halt log analysis midway.**<br>"
+                    "This is useful when analyzing large files and you wish to interrupt before all logs are processed.",
+                    unsafe_allow_html=True)
+
+        # UI control to stosp processing
+        if "stop_processing" not in st.session_state:
+            st.session_state.stop_processing = False
+
+        def stop():
+            st.session_state.stop_processing = True
+
+        st.button("⏹️ Stop Processing", on_click=stop)
+
         st.markdown("### 🚨 Anomalous Logs Detected")
         for log_block in log_blocks:
+            if st.session_state.stop_processing:
+                st.warning("⚠️ Processing stopped by user.")
+                break
             log_message = log_block.strip()
             first_line = log_message.splitlines()[0]
 
@@ -148,13 +171,19 @@ if uploaded_file is not None:
                 f"Change Type: {structured['change_type']}, Cluster ID: {structured['cluster_id']}\n"
             )
 
+            st.session_state.line_count += 1
+
             score = score_log(log_text, tokenizer, model, device)
             if score > threshold:
-                st.code(log_text + f"\nAnomaly Score: {score:.4f}", language="text")
-                anomaly_file.write(json.dumps(structured) + "\n\n")
-                anomaly_count += 1
+                st.code(log_text + f"\nAnomaly Score: {score:.4f} \n Log line: {st.session_state.line_count:.4f}", language="text")
+                st.session_state.anomalies.append(json.dumps(structured))
+                st.session_state.anomaly_count += 1
 
-        st.success(f"✅ Detected {anomaly_count} anomalous logs.")
+        with open(out_anomalies_path, "w") as anomaly_file:
+            for log in st.session_state.anomalies:
+                anomaly_file.write(log + "\n\n")
+
+        st.success(f"✅ Detected {st.session_state.anomaly_count} anomalous logs.")
 
         # Provide download link
         with open(out_anomalies_path, "rb") as f:
